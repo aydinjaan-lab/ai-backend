@@ -6,17 +6,20 @@ app.use(express.urlencoded({ extended: true }));
 
 const API_KEY = process.env.DEEPSEEK_KEY;
 
+/* Root check */
 app.get("/", (req, res) => {
-  res.send("AI backend is running.");
+  res.set("Content-Type", "text/plain");
+  res.send("AI backend is running");
 });
 
+/* Helper */
 async function askAI(question) {
   try {
     const r = await fetch("https://api.deepseek.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${API_KEY}`
+        "Authorization": "Bearer " + API_KEY
       },
       body: JSON.stringify({
         model: "deepseek-chat",
@@ -24,10 +27,16 @@ async function askAI(question) {
       })
     });
 
-    const j = await r.json();
+    const text = await r.text();
 
-    if (!j || !j.choices || !j.choices[0]) {
-      return "AI is busy or unavailable. Try again.";
+    if (!text) {
+      return "AI returned no data.";
+    }
+
+    const j = JSON.parse(text);
+
+    if (!j.choices || !j.choices[0] || !j.choices[0].message) {
+      return "AI is busy. Try again.";
     }
 
     return j.choices[0].message.content;
@@ -37,17 +46,19 @@ async function askAI(question) {
   }
 }
 
-/* GET is Nokia-safe */
+/* Nokia-safe GET endpoint */
 app.get("/ask", async (req, res) => {
-  const question = req.query.q || "";
+  res.set("Content-Type", "text/plain");
 
-  if (question.trim() === "") {
+  const question = req.query.q;
+
+  if (!question || question.trim() === "") {
     res.send("Please enter a question.");
     return;
   }
 
   const answer = await askAI(question);
-  res.send(answer);
+  res.send(answer || "No answer returned.");
 });
 
 app.listen(3000);
