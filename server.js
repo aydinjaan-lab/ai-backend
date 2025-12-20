@@ -54,7 +54,7 @@ app.get("/ask", async (req, res) => {
 const adminCode = req.query.admin;
 
 /* Admin secret */
-const ADMIN_SECRET = "admin123";
+const ADMIN_SECRET = "BtA43gjewaAD4g";
 
 /* Message limit */
 if (adminCode !== ADMIN_SECRET) {
