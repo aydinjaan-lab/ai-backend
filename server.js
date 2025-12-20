@@ -51,6 +51,21 @@ app.get("/ask", async (req, res) => {
   res.set("Content-Type", "text/plain");
 
   const question = req.query.q;
+const adminCode = req.query.admin;
+
+/* Admin secret */
+const ADMIN_SECRET = "admin123";
+
+/* Message limit */
+if (adminCode !== ADMIN_SECRET) {
+  if (!global.msgCount) global.msgCount = 0;
+  global.msgCount++;
+
+  if (global.msgCount > 10) {
+    res.send("Message limit reached (10). Admin only beyond this.");
+    return;
+  }
+}
 
   if (!question || question.trim() === "") {
     res.send("Please enter a question.");
