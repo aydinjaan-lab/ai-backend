@@ -4,76 +4,82 @@ import fetch from "node-fetch";
 const app = express();
 app.use(express.urlencoded({ extended: true }));
 
+/* ================= CONFIG ================= */
 const API_KEY = process.env.DEEPSEEK_KEY;
 
-/* Root check */
+/* CHANGE THIS ADMIN CODE */
+const ADMIN_SECRET = "BtA43gjewaAD4g";
+
+/* Message counter (free-tier memory) */
+let messageCount = 0;
+const USER_LIMIT = 10;
+
+/* ================= ROOT ================= */
 app.get("/", (req, res) => {
   res.set("Content-Type", "text/plain");
   res.send("AI backend is running");
 });
 
-/* Helper */
+/* ================= AI FUNCTION ================= */
 async function askAI(question) {
-  try {
-    const r = await fetch("https://api.deepseek.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + API_KEY
-      },
-      body: JSON.stringify({
-        model: "deepseek-chat",
-        messages: [{ role: "user", content: question }]
-      })
-    });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await fetch("https://api.deepseek.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + API_KEY
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat",
+          messages: [{ role: "user", content: question }]
+        })
+      });
 
-    const text = await r.text();
+      const text = await r.text();
+      if (!text) continue;
 
-    if (!text) {
-      return "AI returned no data.";
+      const j = JSON.parse(text);
+      if (j.choices && j.choices[0] && j.choices[0].message) {
+        return j.choices[0].message.content;
+      }
+    } catch (e) {
+      // retry once
     }
-
-    const j = JSON.parse(text);
-
-    if (!j.choices || !j.choices[0] || !j.choices[0].message) {
-      return "AI is busy. Try again.";
-    }
-
-    return j.choices[0].message.content;
-
-  } catch (e) {
-    return "Connection error. Try again later.";
   }
+
+  return "AI is busy. Try again in a minute.";
 }
 
-/* Nokia-safe GET endpoint */
+/* ================= ASK ENDPOINT ================= */
 app.get("/ask", async (req, res) => {
   res.set("Content-Type", "text/plain");
 
-  const question = req.query.q;
-const adminCode = req.query.admin;
+  const question = req.query.q || "";
+  const adminCode = req.query.admin || "";
 
-/* Admin secret */
-const ADMIN_SECRET = "BtA43gjewaAD4g";
-
-/* Message limit */
-if (adminCode !== ADMIN_SECRET) {
-  if (!global.msgCount) global.msgCount = 0;
-  global.msgCount++;
-
-  if (global.msgCount > 10) {
-    res.send("Message limit reached (10). Admin only beyond this.");
-    return;
-  }
-}
-
-  if (!question || question.trim() === "") {
+  if (question.trim() === "") {
     res.send("Please enter a question.");
     return;
   }
 
+  /* ADMIN BYPASS */
+  const isAdmin = adminCode === ADMIN_SECRET;
+
+  if (!isAdmin) {
+    messageCount++;
+
+    if (messageCount > USER_LIMIT) {
+      res.send(
+        "Message limit reached (10). Admin access required for more."
+      );
+      return;
+    }
+  }
+
   const answer = await askAI(question);
-  res.send(answer || "No answer returned.");
+  res.send(answer);
 });
 
+/* ================= START ================= */
 app.listen(3000);
