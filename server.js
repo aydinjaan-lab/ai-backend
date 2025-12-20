@@ -5,38 +5,35 @@ const app = express();
 app.use(express.urlencoded({ extended: true }));
 
 /* ================= CONFIG ================= */
-const API_KEY = process.env.DEEPSEEK_KEY;
-
-/* Admin code (can be changed at runtime) */
+const API_KEY = process.env.MISTRAL_API_KEY;
 let ADMIN_SECRET = "BtA43gjewaAD4g";
 
-/* Limits */
 const USER_LIMIT = 10;
 const BAN_TIME = 24 * 60 * 60 * 1000;
 
-/* In-memory storage (Render free tier) */
 let messageCountByIP = {};
 let bannedIPs = {};
 
 /* ================= ROOT ================= */
 app.get("/", (req, res) => {
   res.set("Content-Type", "text/plain");
-  res.send("AI backend is running");
+  res.send("AI backend is running (Mistral)");
 });
 
 /* ================= AI FUNCTION ================= */
 async function askAI(question) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const r = await fetch("https://api.deepseek.com/v1/chat/completions", {
+      const r = await fetch("https://api.mistral.ai/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer " + API_KEY
         },
         body: JSON.stringify({
-          model: "deepseek-chat",
-          messages: [{ role: "user", content: question }]
+          model: "mistral-small",
+          messages: [{ role: "user", content: question }],
+          max_tokens: 200
         })
       });
 
@@ -58,39 +55,31 @@ function adminPanel() {
 ADMIN COMMAND PANEL
 
 Commands:
-?cmd=stats        → show usage stats
-?cmd=bans         → show banned IPs
-?cmd=reset        → reset counters & bans
-?cmd=unban        → clear all bans
-?cmd=test         → test AI
-?cmd=setadmin&new=NEWCODE → change admin code
-
-Examples:
- /ask?admin=ADMIN&cmd=stats
- /ask?admin=ADMIN&cmd=bans
- /ask?admin=ADMIN&cmd=setadmin&new=secret987
+?cmd=stats
+?cmd=bans
+?cmd=reset
+?cmd=unban
+?cmd=test
+?cmd=setadmin&new=NEWCODE
 
 --------------------------------
 `;
 }
 
-/* ================= FORMAT BANS ================= */
 function listBans() {
   const now = Date.now();
   const ips = Object.keys(bannedIPs);
-
   if (ips.length === 0) return "No IPs are currently banned.";
 
   let out = "BANNED IP LIST:\n";
   ips.forEach(ip => {
-    const remainingMs = bannedIPs[ip] - now;
-    const hours = Math.max(0, Math.ceil(remainingMs / (60 * 60 * 1000)));
-    out += `- ${ip} (expires in ~${hours}h)\n`;
+    const h = Math.ceil((bannedIPs[ip] - now) / 3600000);
+    out += `- ${ip} (~${h}h left)\n`;
   });
   return out;
 }
 
-/* ================= ASK ENDPOINT ================= */
+/* ================= ASK ================= */
 app.get("/ask", async (req, res) => {
   res.set("Content-Type", "text/plain");
 
@@ -98,98 +87,63 @@ app.get("/ask", async (req, res) => {
     (req.headers["x-forwarded-for"] || "").split(",")[0] ||
     req.socket.remoteAddress;
 
-  const question = req.query.q || "";
-  const adminCode = req.query.admin || "";
+  const q = req.query.q || "";
+  const admin = req.query.admin || "";
   const cmd = req.query.cmd || "";
   const newAdmin = req.query.new || "";
 
-  const isAdmin = adminCode === ADMIN_SECRET;
+  const isAdmin = admin === ADMIN_SECRET;
 
-  /* ================= ADMIN COMMAND MODE ================= */
+  /* Admin commands */
   if (isAdmin && cmd) {
+    if (cmd === "stats")
+      return res.send(adminPanel() +
+        `IPs: ${Object.keys(messageCountByIP).length}\nBanned: ${Object.keys(bannedIPs).length}`);
 
-    if (cmd === "stats") {
-      res.send(
-        adminPanel() +
-        "Active IPs: " + Object.keys(messageCountByIP).length +
-        "\nBanned IPs: " + Object.keys(bannedIPs).length
-      );
-      return;
-    }
-
-    if (cmd === "bans") {
-      res.send(adminPanel() + listBans());
-      return;
-    }
+    if (cmd === "bans")
+      return res.send(adminPanel() + listBans());
 
     if (cmd === "reset") {
       messageCountByIP = {};
       bannedIPs = {};
-      res.send(adminPanel() + "All counters and bans reset.");
-      return;
+      return res.send(adminPanel() + "All counters reset.");
     }
 
     if (cmd === "unban") {
       bannedIPs = {};
-      res.send(adminPanel() + "All IP bans cleared.");
-      return;
+      return res.send(adminPanel() + "All bans cleared.");
     }
 
     if (cmd === "test") {
-      const answer = await askAI("Say hello briefly");
-      res.send(adminPanel() + "AI Test:\n" + answer);
-      return;
+      const a = await askAI("Say hello briefly");
+      return res.send(adminPanel() + "AI Test:\n" + a);
     }
 
-    if (cmd === "setadmin") {
-      if (!newAdmin || newAdmin.length < 3) {
-        res.send(adminPanel() + "New admin code must be at least 3 characters.");
-        return;
-      }
+    if (cmd === "setadmin" && newAdmin.length >= 3) {
       ADMIN_SECRET = newAdmin;
-      res.send(adminPanel() + "Admin code updated successfully.");
-      return;
+      return res.send(adminPanel() + "Admin code updated.");
     }
 
-    res.send(adminPanel() + "Unknown command.");
-    return;
+    return res.send(adminPanel());
   }
 
-  /* Show admin panel if admin code entered without question */
-  if (isAdmin && question.trim() === "") {
-    res.send(adminPanel());
-    return;
+  if (!q.trim()) {
+    if (isAdmin) return res.send(adminPanel());
+    return res.send("Please enter a question.");
   }
 
-  /* Empty question */
-  if (question.trim() === "") {
-    res.send("Please enter a question.");
-    return;
-  }
+  if (bannedIPs[ip] && bannedIPs[ip] > Date.now())
+    return res.send("You are banned for 24 hours.");
 
-  /* Ban check */
-  if (bannedIPs[ip]) {
-    if (bannedIPs[ip] > Date.now()) {
-      res.send("You are banned for 24 hours due to exceeding the limit.");
-      return;
-    } else {
-      delete bannedIPs[ip];
-      delete messageCountByIP[ip];
-    }
-  }
-
-  /* User limit */
   if (!isAdmin) {
     messageCountByIP[ip] = (messageCountByIP[ip] || 0) + 1;
     if (messageCountByIP[ip] > USER_LIMIT) {
       bannedIPs[ip] = Date.now() + BAN_TIME;
-      res.send("Limit exceeded. You are banned for 24 hours.");
-      return;
+      return res.send("Limit exceeded. You are banned for 24 hours.");
     }
   }
 
-  const answer = await askAI(question);
-  res.send(answer);
+  res.send(await askAI(q));
 });
 
 /* ================= START ================= */
