@@ -6,6 +6,12 @@ app.use(express.urlencoded({ extended: true }));
 
 const API_KEY = process.env.DEEPSEEK_KEY;
 
+/* 👇 THIS FIXES "Cannot GET /" */
+app.get("/", (req, res) => {
+  res.send("AI backend is running.");
+});
+
+/* 👇 THIS IS THE AI ENDPOINT */
 app.post("/ask", async (req, res) => {
   const question = req.body.q || "";
 
