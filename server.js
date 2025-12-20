@@ -10,9 +10,13 @@ const API_KEY = process.env.DEEPSEEK_KEY;
 /* CHANGE THIS ADMIN CODE */
 const ADMIN_SECRET = "BtA43gjewaAD4g";
 
-/* Message counter (free-tier memory) */
-let messageCount = 0;
+/* Limits */
 const USER_LIMIT = 10;
+const BAN_TIME = 24 * 60 * 60 * 1000; // 24 hours
+
+/* In-memory storage (Render free tier) */
+let messageCountByIP = {};
+let bannedIPs = {};
 
 /* ================= ROOT ================= */
 app.get("/", (req, res) => {
@@ -48,30 +52,52 @@ async function askAI(question) {
     }
   }
 
-  return "AI is busy. Try again in a minute.";
+  return "AI is busy. Try again later.";
 }
 
 /* ================= ASK ENDPOINT ================= */
 app.get("/ask", async (req, res) => {
   res.set("Content-Type", "text/plain");
 
+  const ip =
+    req.headers["x-forwarded-for"]?.split(",")[0] ||
+    req.socket.remoteAddress;
+
   const question = req.query.q || "";
   const adminCode = req.query.admin || "";
 
+  /* Empty question */
   if (question.trim() === "") {
     res.send("Please enter a question.");
     return;
   }
 
-  /* ADMIN BYPASS */
+  /* Check ban */
+  if (bannedIPs[ip]) {
+    const remaining = bannedIPs[ip] - Date.now();
+    if (remaining > 0) {
+      res.send("You are banned for 24 hours due to exceeding the limit.");
+      return;
+    } else {
+      delete bannedIPs[ip];
+      delete messageCountByIP[ip];
+    }
+  }
+
+  /* Admin bypass */
   const isAdmin = adminCode === ADMIN_SECRET;
 
   if (!isAdmin) {
-    messageCount++;
+    if (!messageCountByIP[ip]) {
+      messageCountByIP[ip] = 0;
+    }
 
-    if (messageCount > USER_LIMIT) {
+    messageCountByIP[ip]++;
+
+    if (messageCountByIP[ip] > USER_LIMIT) {
+      bannedIPs[ip] = Date.now() + BAN_TIME;
       res.send(
-        "Message limit reached (10). Admin access required for more."
+        "Limit exceeded. You are banned for 24 hours."
       );
       return;
     }
