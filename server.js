@@ -28,7 +28,9 @@ app.get("/ask", async (req, res) => {
     });
 
     const j = await r.json();
-    res.send(j.choices[0].message.content);
+    res.set("Content-Type", "text/plain");
+res.send(j.choices[0].message.content.replace(/[^\x00-\x7F]/g, ""));
+
   } catch {
     res.send("AI busy.");
   }
