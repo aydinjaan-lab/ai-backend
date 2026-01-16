@@ -37,6 +37,8 @@ app.get("/ai", (req, res) => {
     Tips:<br>
     - Keep questions short<br>
     - If no reply, try again
+    - If a website called render says the        project is starting, please refresh after a minute.
+    -Short answers are to be expected.
   </p>
 </body>
 </html>
