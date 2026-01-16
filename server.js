@@ -5,24 +5,59 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.MISTRAL_API_KEY;
 
-/* Health / wake endpoint */
+/* --------------------
+   Wake / Health Check
+-------------------- */
 app.get("/ping", (req, res) => {
   res.type("text").send("OK");
 });
 
-/* Main AI endpoint */
+/* --------------------
+   Simple AI Web Page
+   (Nokia friendly)
+-------------------- */
+app.get("/ai", (req, res) => {
+  res.type("html").send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Nokia AI</title>
+</head>
+<body>
+  <h3>Nokia AI</h3>
+
+  <form method="GET" action="/ask">
+    <input type="text" name="q" style="width:90%;" />
+    <br><br>
+    <input type="submit" value="Ask">
+  </form>
+
+  <p>
+    Tips:<br>
+    - Keep questions short<br>
+    - If no reply, try again
+  </p>
+</body>
+</html>
+  `);
+});
+
+/* --------------------
+   AI Endpoint
+-------------------- */
 app.get("/ask", async (req, res) => {
   res.type("text");
 
   const q = (req.query.q || "").toString().trim();
 
   if (!q) {
-    res.send("");
+    res.send("No question provided.");
     return;
   }
 
   if (!API_KEY) {
-    res.send("");
+    res.send("AI key not set.");
     return;
   }
 
@@ -38,8 +73,14 @@ app.get("/ask", async (req, res) => {
         body: JSON.stringify({
           model: "mistral-small",
           messages: [
-            { role: "system", content: "Reply briefly in simple English. No symbols." },
-            { role: "user", content: q }
+            {
+              role: "system",
+              content: "Reply briefly in simple English. No symbols."
+            },
+            {
+              role: "user",
+              content: q
+            }
           ],
           max_tokens: 50,
           temperature: 0.6
@@ -48,7 +89,7 @@ app.get("/ask", async (req, res) => {
     );
 
     if (!response.ok) {
-      res.send("");
+      res.send("AI service error.");
       return;
     }
 
@@ -65,17 +106,24 @@ app.get("/ask", async (req, res) => {
       text = data.choices[0].message.content;
     }
 
-    /* Strip non-ASCII characters (important for Nokia) */
+    /* Remove non-ASCII characters (important for Nokia) */
     text = text.replace(/[^\x00-\x7F]/g, "");
+
+    if (!text) {
+      res.send("AI returned no response.");
+      return;
+    }
 
     res.send(text);
 
   } catch (err) {
-    res.send("");
+    res.send("AI is busy. Try again.");
   }
 });
 
-/* Start server */
+/* --------------------
+   Start Server
+-------------------- */
 app.listen(PORT, () => {
   console.log("AI backend running");
 });
