@@ -3,68 +3,75 @@ import fetch from "node-fetch";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const KEY = process.env.MISTRAL_API_KEY;
+const API_KEY = process.env.MISTRAL_API_KEY;
 
-/* Basic health check */
-app.get("/", (req, res) => {
-  res.set("Content-Type", "text/plain");
-  res.send("AI backend running");
+/* Health / wake endpoint */
+app.get("/ping", (req, res) => {
+  res.type("text").send("OK");
 });
 
-/* AI endpoint */
+/* Main AI endpoint */
 app.get("/ask", async (req, res) => {
-  res.set("Content-Type", "text/plain");
+  res.type("text");
 
   const q = (req.query.q || "").toString().trim();
 
   if (!q) {
-    res.send("No question provided.");
+    res.send("");
     return;
   }
 
-  if (!KEY) {
-    res.send("AI key missing.");
+  if (!API_KEY) {
+    res.send("");
     return;
   }
 
   try {
-    const r = await fetch("https://api.mistral.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer " + KEY,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "mistral-small",
-        messages: [
-          { role: "system", content: "Reply in plain simple English. No symbols." },
-          { role: "user", content: q }
-        ],
-        max_tokens: 200,
-        temperature: 0.7
-      })
-    });
+    const response = await fetch(
+      "https://api.mistral.ai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + API_KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "mistral-small",
+          messages: [
+            { role: "system", content: "Reply briefly in simple English. No symbols." },
+            { role: "user", content: q }
+          ],
+          max_tokens: 50,
+          temperature: 0.6
+        })
+      }
+    );
 
-    if (!r.ok) {
-      res.send("AI service error.");
+    if (!response.ok) {
+      res.send("");
       return;
     }
 
-    const j = await r.json();
-    let text = j.choices?.[0]?.message?.content || "No response.";
+    const data = await response.json();
 
-    /* Strip all non-ASCII characters (VERY IMPORTANT FOR NOKIA) */
-    text = text.replace(/[^\x00-\x7F]/g, "");
-
-    /* Prevent empty response */
-    if (!text.trim()) {
-      text = "AI returned an empty reply.";
+    let text = "";
+    if (
+      data &&
+      data.choices &&
+      data.choices[0] &&
+      data.choices[0].message &&
+      data.choices[0].message.content
+    ) {
+      text = data.choices[0].message.content;
     }
+
+    /* Strip non-ASCII characters (important for Nokia) */
+    text = text.replace(/[^\x00-\x7F]/g, "");
 
     res.send(text);
 
   } catch (err) {
-    res.send("AI busy.");
+    res.send("");
   }
 });
 
