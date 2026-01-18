@@ -5,6 +5,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.MISTRAL_API_KEY;
 
+/* Allow POST forms if needed later */
+app.use(express.urlencoded({ extended: false }));
+
 /* --------------------
    Wake / Health Check
 -------------------- */
@@ -13,7 +16,7 @@ app.get("/ping", (req, res) => {
 });
 
 /* --------------------
-   Start Page
+   Simple AI Page (Nokia friendly)
 -------------------- */
 app.get("/ai", (req, res) => {
   res.type("html").send(`
@@ -27,7 +30,7 @@ app.get("/ai", (req, res) => {
   <h3>Nokia AI</h3>
 
   <form method="GET" action="/ask">
-    <input type="text" name="q" style="width:90%;" />
+    <input type="text" name="q" autocomplete="off" style="width:90%;" />
     <br><br>
     <input type="submit" value="Ask">
   </form>
@@ -35,7 +38,8 @@ app.get("/ai", (req, res) => {
   <p>
     Tips:<br>
     - Ask clear questions<br>
-    - Use follow-ups for more detail
+    - Use follow-ups for more detail<br>
+    - Type "continue" if the reply stops
   </p>
 </body>
 </html>
@@ -46,8 +50,9 @@ app.get("/ai", (req, res) => {
    Ask + Reply Page
 -------------------- */
 app.get("/ask", async (req, res) => {
-  const q = (req.query.q || "").toString().trim();
   res.type("html");
+
+  const q = (req.query.q || "").toString().trim();
 
   if (!q) {
     res.send("No question provided.<br><a href='/ai'>Back</a>");
@@ -75,13 +80,13 @@ app.get("/ask", async (req, res) => {
           messages: [
             {
               role: "system",
-              content: "Reply in proper, clear English with detailed explanations when appropriate.
-You may use normal punctuation symbols such as . , ? ! : ; ( ) - and quotes.
-Do NOT use emojis or Unicode emoji characters.
-If an emotional expression is needed, use ASCII text emoticons like :) :( ;) :D :O instead of emojis.
-Avoid special symbols that are not standard keyboard characters.
-
-If your reply would exceed 225 words, stop at a natural point and tell the user to continue the dialogue by typing the word continue."
+              content:
+                "Reply in proper, clear English with detailed explanations when appropriate. " +
+                "You may use normal punctuation symbols such as . , ? ! : ; ( ) - and quotes. " +
+                "Do NOT use emojis or Unicode emoji characters. " +
+                "If an emotional expression is needed, use ASCII text emoticons like :) :( ;) :D instead of emojis. " +
+                "Avoid special symbols that are not standard keyboard characters. " +
+                "If your reply would exceed 225 words, stop at a natural point and tell the user to continue the dialogue by typing the word \"continue\"."
             },
             {
               role: "user",
@@ -119,16 +124,14 @@ If your reply would exceed 225 words, stop at a natural point and tell the user 
   <title>Nokia AI</title>
 </head>
 <body>
-  <h3>You asked:</h3>
-  <p>${escapeHtml(q)}</p>
+  <p><b>You:</b><br>${escapeHtml(q)}</p>
 
-  <h3>AI replied:</h3>
-  <p>${escapeHtml(answer)}</p>
+  <p><b>AI:</b><br>${escapeHtml(answer)}</p>
 
   <hr>
 
   <form method="GET" action="/ask">
-    <input type="text" name="q" style="width:90%;" />
+    <input type="text" name="q" autocomplete="off" style="width:90%;" />
     <br><br>
     <input type="submit" value="Reply">
   </form>
