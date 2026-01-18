@@ -76,7 +76,7 @@ app.get("/ask", async (req, res) => {
           messages: [
             {
               role: "system",
-              content: "Reply properly in simple English. No symbols or emojis."
+              content: "Reply properly in simple English. No symbols or emojis just text emoticons if possible."
             },
             {
               role: "user",
