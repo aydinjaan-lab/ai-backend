@@ -81,7 +81,7 @@ Do NOT use emojis or Unicode emoji characters.
 If an emotional expression is needed, use ASCII text emoticons like :) :( ;) :D :O instead of emojis.
 Avoid special symbols that are not standard keyboard characters.
 
-If your reply would exceed 225 words, stop at a natural point and tell the user to continue the dialogue by typing the word "continue"."
+If your reply would exceed 225 words, stop at a natural point and tell the user to continue the dialogue by typing the word continue."
             },
             {
               role: "user",
