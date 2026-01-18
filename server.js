@@ -13,8 +13,7 @@ app.get("/ping", (req, res) => {
 });
 
 /* --------------------
-   Simple AI Web Page
-   (Nokia friendly)
+   Start Page
 -------------------- */
 app.get("/ai", (req, res) => {
   res.type("html").send(`
@@ -35,9 +34,8 @@ app.get("/ai", (req, res) => {
 
   <p>
     Tips:<br>
-    - Keep questions short<br>
-    - If no reply, try again.<br>
-    -Short answers are to be expected.
+    - Ask clear questions<br>
+    - Use follow-ups for more detail
   </p>
 </body>
 </html>
@@ -45,15 +43,14 @@ app.get("/ai", (req, res) => {
 });
 
 /* --------------------
-   AI Endpoint
+   Ask + Reply Page
 -------------------- */
 app.get("/ask", async (req, res) => {
-  res.type("text");
-
   const q = (req.query.q || "").toString().trim();
+  res.type("html");
 
   if (!q) {
-    res.send("No question provided.");
+    res.send("No question provided.<br><a href='/ai'>Back</a>");
     return;
   }
 
@@ -61,6 +58,8 @@ app.get("/ask", async (req, res) => {
     res.send("AI key not set.");
     return;
   }
+
+  let answer = "AI is busy. Try again.";
 
   try {
     const response = await fetch(
@@ -76,7 +75,7 @@ app.get("/ask", async (req, res) => {
           messages: [
             {
               role: "system",
-              content: "Reply properly in simple English. Symbols permitted but emojis are note allowed just text emoticons should be used to replace the emojis if possible."
+              content: "Reply clearly in proper English. Symbols allowed, emojis not allowed and text emoticons are to be used to replace the emojis."
             },
             {
               role: "user",
@@ -89,38 +88,62 @@ app.get("/ask", async (req, res) => {
       }
     );
 
-    if (!response.ok) {
-      res.send("AI service error.");
-      return;
+    if (response.ok) {
+      const data = await response.json();
+      if (
+        data &&
+        data.choices &&
+        data.choices[0] &&
+        data.choices[0].message &&
+        data.choices[0].message.content
+      ) {
+        answer = data.choices[0].message.content;
+      }
     }
+  } catch (e) {}
 
-    const data = await response.json();
+  /* Remove non-ASCII characters (Nokia-safe) */
+  answer = answer.replace(/[^\x00-\x7F]/g, "");
 
-    let text = "";
-    if (
-      data &&
-      data.choices &&
-      data.choices[0] &&
-      data.choices[0].message &&
-      data.choices[0].message.content
-    ) {
-      text = data.choices[0].message.content;
-    }
+  res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Nokia AI</title>
+</head>
+<body>
+  <h3>You asked:</h3>
+  <p>${escapeHtml(q)}</p>
 
-    /* Remove non-ASCII characters (important for Nokia) */
-    text = text.replace(/[^\x00-\x7F]/g, "");
+  <h3>AI replied:</h3>
+  <p>${escapeHtml(answer)}</p>
 
-    if (!text) {
-      res.send("AI returned no response.");
-      return;
-    }
+  <hr>
 
-    res.send(text);
+  <form method="GET" action="/ask">
+    <input type="text" name="q" style="width:90%;" />
+    <br><br>
+    <input type="submit" value="Reply">
+  </form>
 
-  } catch (err) {
-    res.send("AI is busy. Try again.");
-  }
+  <p>
+    <a href="/ai">New chat</a>
+  </p>
+</body>
+</html>
+  `);
 });
+
+/* --------------------
+   Simple HTML escape
+-------------------- */
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
 
 /* --------------------
    Start Server
