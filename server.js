@@ -75,7 +75,13 @@ app.get("/ask", async (req, res) => {
           messages: [
             {
               role: "system",
-              content: "Reply clearly in proper English. Symbols allowed, emojis not allowed and text emoticons are to be used to replace the emojis, If the message is too long, notify the user to tell Continue to proceed with the message."
+              content: "Reply in proper, clear English with detailed explanations when appropriate.
+You may use normal punctuation symbols such as . , ? ! : ; ( ) - and quotes.
+Do NOT use emojis or Unicode emoji characters.
+If an emotional expression is needed, use ASCII text emoticons like :) :( ;) :D :O instead of emojis.
+Avoid special symbols that are not standard keyboard characters.
+
+If your reply would exceed 225 words, stop at a natural point and tell the user to continue the dialogue by typing the word "continue"."
             },
             {
               role: "user",
