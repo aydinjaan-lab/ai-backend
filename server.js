@@ -75,14 +75,14 @@ app.get("/ask", async (req, res) => {
           messages: [
             {
               role: "system",
-              content: "Reply clearly in proper English. Symbols allowed, emojis not allowed and text emoticons are to be used to replace the emojis."
+              content: "Reply clearly in proper English. Symbols allowed, emojis not allowed and text emoticons are to be used to replace the emojis, If the message is too long, notify the user to tell Continue to proceed with the message."
             },
             {
               role: "user",
               content: q
             }
           ],
-          max_tokens: 120,
+          max_tokens: 180,
           temperature: 0.6
         })
       }
