@@ -82,7 +82,7 @@ app.get("/ask", async (req, res) => {
               content: q
             }
           ],
-          max_tokens: 180,
+          max_tokens: 225,
           temperature: 0.6
         })
       }
