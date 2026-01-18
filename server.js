@@ -36,8 +36,7 @@ app.get("/ai", (req, res) => {
   <p>
     Tips:<br>
     - Keep questions short<br>
-    - If no reply, try again
-    - If a website called render says the        project is starting, please refresh after a minute.
+    - If no reply, try again.<br>
     -Short answers are to be expected.
   </p>
 </body>
@@ -77,7 +76,7 @@ app.get("/ask", async (req, res) => {
           messages: [
             {
               role: "system",
-              content: "Reply briefly in simple English. No symbols."
+              content: "Reply properly in simple English. No symbols or emojis."
             },
             {
               role: "user",
