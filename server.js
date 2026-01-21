@@ -86,14 +86,14 @@ app.get("/ask", async (req, res) => {
                 "Do NOT use emojis or Unicode emoji characters. " +
                 "If an emotional expression is needed, use ASCII text emoticons like :) :( ;) :D instead of emojis. " +
                 "Avoid special symbols that are not standard keyboard characters. " +
-                "Your reply should NOT exceed 225 words, stop at a natural point."
+                "Your reply should NOT exceed 250 words, stop at a natural point."
             },
             {
               role: "user",
               content: q
             }
           ],
-          max_tokens: 225,
+          max_tokens: 250,
           temperature: 0.6
         })
       }
